@@ -1,25 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { apiClient } from '@/lib/apiClient';
 import { useApproveSwap } from '@/hooks/useApproveSwap';
 import { supabase } from '@/lib/supabase';
-import {
-  CheckCircle,
-  Loader2,
-  LogOut,
-  PackagePlus,
-  MessageSquare,
-  ArrowLeft,
-  RefreshCw,
-  Settings,
-  Trash2,
-  Plus,
-  Users,
-  Factory,
-  Sun,
-  Moon,
-} from 'lucide-react';
+import { CircleCheck as CheckCircle, Loader as Loader2, LogOut, PackagePlus, MessageSquare, ArrowLeft, RefreshCw, Settings, Trash2, Plus, Users, Factory, Sun, Moon } from 'lucide-react';
 import { NewSwapForm } from './NewSwapForm';
 import { CompleteSwapForm } from './CompleteSwapForm';
 
@@ -95,7 +81,7 @@ export default function Dashboard() {
   });
 
   // 📡 3. Traemos los Perfiles (Solo Admin)
-  const { data: profiles = [], refetch: refetchProfiles } = useQuery({
+  const { data: profiles = [] } = useQuery({
     queryKey: ['profiles'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -123,10 +109,10 @@ export default function Dashboard() {
         .insert([{ name: newLineName.trim() }]);
       if (error) throw error;
       setNewLineName('');
-      refetchLines();
-      alert('✅ Línea agregada con éxito.');
+      queryClient.invalidateQueries({ queryKey: ['lines'] });
+      toast.success('Línea agregada con éxito.');
     } catch (err) {
-      alert('🚨 Error al agregar línea: ' + err.message);
+      toast.error('Error al agregar línea: ' + err.message);
     } finally {
       setIsCreatingLine(false);
     }
@@ -140,23 +126,29 @@ export default function Dashboard() {
     try {
       const { error } = await supabase.from('lines').delete().eq('id', id);
       if (error) throw error;
-      refetchLines();
+      queryClient.invalidateQueries({ queryKey: ['lines'] });
     } catch (err) {
-      alert('🚨 Error al eliminar línea: ' + err.message);
+      toast.error('Error al eliminar línea: ' + err.message);
     }
   };
 
   // 🔥 GESTIÓN DE ROLES DE USUARIO
   const handleRoleChange = async (userId, newRole) => {
+    const previousProfiles = profiles;
+    queryClient.setQueryData(['profiles'], (old) =>
+      old?.map((p) => (p.id === userId ? { ...p, role: newRole } : p))
+    );
     try {
       const { error } = await supabase
         .from('profiles')
         .update({ role: newRole })
         .eq('id', userId);
       if (error) throw error;
-      refetchProfiles();
+      await queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      toast.success('Rol actualizado correctamente');
     } catch (err) {
-      alert('🚨 Error al actualizar el rol: ' + err.message);
+      queryClient.setQueryData(['profiles'], previousProfiles);
+      toast.error('Error al actualizar el rol: ' + err.message);
     }
   };
 
@@ -380,13 +372,12 @@ export default function Dashboard() {
                     'admin',
                   ].map((roleGroup) => {
                     const groupProfiles = profiles.filter((p) => {
-                      if (roleGroup === 'sin_rol') return !p.role; // Los que no tienen rol
+                      if (roleGroup === 'sin_rol') return !p.role;
                       return p.role === roleGroup;
                     });
 
-                    if (groupProfiles.length === 0) return null; // Si no hay nadie en este grupo, no mostramos la tabla
+                    if (groupProfiles.length === 0) return null;
 
-                    // Títulos para cada grupo
                     const roleTitles = {
                       sin_rol: '⏳ Nuevos / Sala de Espera (Sin Rol)',
                       calidad: '🔴 Equipo de Calidad',
