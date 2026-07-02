@@ -139,14 +139,30 @@ export default function Dashboard() {
       old?.map((p) => (p.id === userId ? { ...p, role: newRole } : p))
     );
     try {
-      const { error } = await supabase
+      console.log('[handleRoleChange] userId:', userId, '| newRole:', newRole);
+      const { data, error, status } = await supabase
         .from('profiles')
         .update({ role: newRole })
-        .eq('id', userId);
-      if (error) throw error;
+        .eq('id', userId)
+        .select();
+      console.log('[handleRoleChange] status:', status, '| data:', data, '| error:', error);
+      if (error) {
+        console.error('[handleRoleChange] Supabase error detail:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+        throw error;
+      }
+      if (!data || data.length === 0) {
+        console.warn('[handleRoleChange] UPDATE matched 0 rows for userId:', userId);
+        throw new Error(`No se encontró el perfil con id ${userId} en la base de datos.`);
+      }
       await queryClient.invalidateQueries({ queryKey: ['profiles'] });
       toast.success('Rol actualizado correctamente');
     } catch (err) {
+      console.error('[handleRoleChange] caught error:', err);
       queryClient.setQueryData(['profiles'], previousProfiles);
       toast.error('Error al actualizar el rol: ' + err.message);
     }
