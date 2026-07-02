@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login'; // <-- IMPORTAMOS LA PANTALLA NUEVA
 import { Toaster } from 'sonner';
+import './style.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {
