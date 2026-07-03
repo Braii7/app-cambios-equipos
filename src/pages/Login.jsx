@@ -62,6 +62,19 @@ export default function Login() {
 
       if (authError) throw authError;
 
+      // INSERT explícito en la tabla pública de perfiles (respaldo al trigger)
+      if (data?.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert(
+            { id: data.user.id, email: data.user.email, role: 'sin_rol' },
+            { onConflict: 'id' }
+          );
+        if (profileError) {
+          console.error('[Register] Error al crear perfil:', profileError);
+        }
+      }
+
       // Si Supabase requiere confirmación por email, data.user existe pero no hay sesión
       if (data?.user && !data?.session) {
         setError('');
